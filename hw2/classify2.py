@@ -2,7 +2,7 @@
 """
 Created on Thu Sep 29 16:11:16 2016
 
-@author: mygao
+@author: mygao and wsw
 """
 
 import os
