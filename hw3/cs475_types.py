@@ -42,6 +42,12 @@ class Instance:
     def __init__(self, feature_vector, label):
         self._feature_vector = feature_vector
         self._label = label
+        
+class InstanceKnn:
+    def __init__(self, dist, feature_vector, label):
+        self._dist = dist
+        self._feature_vector = feature_vector
+        self._label = label
 
 # abstract base class for defining predictors
 class Predictor:

@@ -3,7 +3,7 @@
 import sys
 
 if len(sys.argv) != 3:
-    print('usage: %s data predictions', sys.argv[0])
+    print 'usage: %s data predictions' % sys.argv[0]
     sys.exit()
 
 data_file = sys.argv[1]
@@ -27,7 +27,7 @@ print (true_labels)
 print(predicted_labels)
 
 if len(predicted_labels) != len(true_labels):
-    print('Number of lines in two files do not match.')
+    print 'Number of lines in two files do not match.'
     sys.exit()
     
 match = 0
@@ -37,4 +37,4 @@ for ii in range(len(predicted_labels)):
     if predicted_labels[ii] == true_labels[ii]:
         match += 1
 
-print('Accuracy: %f (%d/%d)', ((float(match)/float(total)), match, total))
+print 'Accuracy: %f (%d/%d)' % ((float(match)/float(total)), match, total)

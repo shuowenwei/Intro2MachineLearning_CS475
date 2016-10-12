@@ -189,6 +189,7 @@ class distance_knn(Predictor):
 
 
 ###############
+### this function finds the x_{kj} for every sample, j feature
 def findValue(instances, feature_index):
     J = feature_index
     xkj = []
@@ -198,72 +199,71 @@ def findValue(instances, feature_index):
             if f[0]-1 == J:
                 val = f[1]
         xkj.append(val)
+   # print xkj
     return xkj
-
-def hjc(instances, feature_index, cutoff):
+    
+########this function finds the h_{j,c} value given x_{jk}    
+def hjc(xkjList, cutoff):
     C = cutoff
-    J = feature_index
     greater = []
-    for e in instances:
-        val = 0
-        for f in e._feature_vector._data:
-            if f[0]-1 == J:
-                val = f[1]
-        if val > C:
+    for e in xkjList:
+        if e > C:
             greater.append(1)
         else:
             greater.append(0)
     return greater
 
+#### this function finds the best c in feature j
 def htj(instances, weights, feature_index):
-    y = []
-    m = 0
+   # y = []
     J =feature_index
-    for e in instances:
-        val = 0
-        for f in e._feature_vector._data:
-            if f[0]-1 == J:
-                val = f[1]
-        mem = Instance(val,e._label)
-        y.append(mem)
-        m = m+1
-    sortedy = sorted(y, key=lambda x : x._feature_vector)    
+    xkj = findValue(instances,feature_index)
+    #for i in range(sampleSize):
+     #   mem = Instance(xkj[i-1],sampleSize[i-1]._label)
+      #  y.append(mem)
+    #sortedy = sorted(y, key=lambda x : x._feature_vector)   
+    sortedy = sorted(xkj) 
     Clist = []
-    for e in range(sampleSize-1):
-        c = 0.5*(sortedy[e]._feature_vector +sortedy[e-1]._feature_vector)
+    for i in range(sampleSize-1):
+        c = 0.5*(sortedy[i-1]+sortedy[i])
         Clist.append(c)
     Cset = set(Clist)
     Clist = list(Cset)
+    #print Clist
     ht = float("inf")
     res = []
     for l in range(len(Clist)):
         cand =0
-        hjcx = hjc(instances,J, Clist[l-1])
+        hjcx = hjc(xkj, Clist[l-1])
         for i in range(sampleSize):
             cand = cand + weights[i-1] * int(str(hjcx[i-1]) != str(instances[i-1]._label))
         if cand < ht:
             ht = cand
-            res = [J, Clist[l-1],cand, hjcx]
+            res = [J, Clist[l-1],ht, hjcx]
     return res
       
-         
+##########this function finds the best j,c         
 def ht(instances, weights):     
     ht = float("inf")
-    res =[]
+    result0 =[]
     for j in range(maxFeature):
         cand = htj(instances, weights, j)
         if cand[2] < ht:
-            res = cand
-    return res
+            result0 = cand
+            ht = cand[2]
+    print [result0[0],result0[1],result0[2]]
+    return result0
             
         
 #############################
 class adaboost(Predictor):
     def __init__(self):
         #self._weights = numpy.ones((sampleSize, T)) * (1.0/sampleSize)
-        self._weights = [1.0/sampleSize]*sampleSize
+        self._weights = []
         self._res = []
+        
     def train(self, instances):
+        self._weights = [1.0/sampleSize]*sampleSize
         for t in range(iterations):
             everyth = ht(instances,self._weights)
             eps = everyth [2]
@@ -271,49 +271,56 @@ class adaboost(Predictor):
             htv = everyth [3]
             if eps <= 0.000001:
                 break
-            elif eps == 1:
-                alp = -float("inf")
             else:
-                alp = 0.5 * math.log((1-eps)/eps)
-            Dt = [0]*sampleSize
-            for i in range(sampleSize): 
-                lab = int(str(instances[i-1]._label))
-                Dt[i-1] = self._weights[i-1]*numpy.exp(-alp* (lab*2-1)*htv[i-1])
+                if eps == 1:
+                    alp = -float("inf")
+                else:
+                    alp = 0.5 * math.log((1-eps)/eps)
+                    #print alp
+                Dt = [0]*sampleSize
+                for i in range(sampleSize): 
+                    lab = int(str(instances[i-1]._label))
+                    Dt[i-1] = self._weights[i-1]* numpy.exp(-alp * (lab*2-1)*htv[i-1])
             
-            Dtsum = sum(Dt)
-            self._weights = [x/Dtsum for x in Dt]
-            #print self._weights
+                Dtsum = sum(Dt)
+                self._weights = [x/Dtsum for x in Dt]
+            
             ###everyth[0] =J, everyth[1] =c
-            store = [alp, everyth[0],everyth[1]]
+            store = [alp, everyth[0],everyth[1], everyth[2]]
             self._res.append(store) 
         return self._res
         
     def predict(self,instance):
-        htx = []
+        #htx = []
         cand0 = 0
         cand1 =0
-
+        #print [self._res[0][0], self._res[0][1], self._res[0][2]]
         for i in range(len(self._res)):
             alp = self._res[i-1][0]
             J = self._res[i-1][1]
             C = self._res[i-1][2]
+           #h = self._res[i-1][3]
+            ind = 0
+            m = 0
             for f in instance._feature_vector._data:
                 if f[0]-1 ==J and f[1] >C:
                     ind = 1
-                else: 
-                    ind = 0
-            htx.append(ind)
+                    #print [C, f[1]]
+                    m = m +1
+                
+            #print ind
+            #htx.append(ind)
             if ind == 0:
+                #print [C, f[1]]
                 cand0 = cand0 + alp
             else:
-                cand1 = cand1 +alp
-        
+                cand1 = cand1 + alp
+        print [cand0,cand1]
         if cand0 >=cand1:
             return 0
-        else:
+        else:             
             return 1
-                       
-##########################
+        
 
 def train(instances, algorithm, k):
     # TODO Train the model using "algorithm" on "data"
@@ -402,8 +409,8 @@ if __name__ == "__main__":
     main()
 
 
-#python classify3.py --mode train --algorithm knn --model-file easy.knn.model --data easy.train
-#python classify3.py --mode test --model-file easy.knn.model --data easy.dev --predictions-file easy.dev.predictions
+#python classify3.py --mode train --algorithm knn --model-file speech.mc.knn.model --data speech.mc.train
+#python classify3.py --mode test --model-file speech.mc.knn.model --data speech.mc.dev --predictions-file speech.mc.dev.predictions
 
 #python classify3.py --mode train --algorithm distance_knn --model-file easy.distance_knn.model --data easy.train
 #python classify3.py --mode test --model-file easy.distance_knn.model --data easy.dev --predictions-file easy.dev.predictions
@@ -412,8 +419,8 @@ if __name__ == "__main__":
 #python classify3.py --mode test --model-file easy.adaboost.model --data easy.dev --predictions-file easy.dev.predictions
 
 
-#python classify3.py --mode train --algorithm adaboost --model-file speech.adaboost.model --data speech.train
-#python classify3.py --mode test --model-file speech.adaboost.model --data speech.dev --predictions-file speech.dev.predictions
+#python classify3.py --mode train --algorithm adaboost --model-file easy.adaboost.model --data easy.train --num-boosting-iterations 5
+#python classify3.py --mode test --model-file easy.adaboost.model --data easy.dev --predictions-file easy.dev.predictions
 
 #python compute_accuracy.py easy.dev easy.dev.predictions
 
