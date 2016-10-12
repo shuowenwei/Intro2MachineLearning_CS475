@@ -216,8 +216,8 @@ def hjc(xkjList, cutoff):
 #### this function finds the best c in feature j
 def htj(instances, weights, feature_index):
    # y = []
-    J =feature_index
-    xkj = findValue(instances,feature_index)
+    J = feature_index
+    xkj = findValue(instances, feature_index)
     #for i in range(sampleSize):
      #   mem = Instance(xkj[i-1],sampleSize[i-1]._label)
       #  y.append(mem)
@@ -239,9 +239,9 @@ def htj(instances, weights, feature_index):
             cand = cand + weights[i-1] * int(str(hjcx[i-1]) != str(instances[i-1]._label))
         if cand < ht:
             ht = cand
-            res = [J, Clist[l-1],ht, hjcx]
+            res = [J, Clist[l-1], ht, hjcx]
     return res
-      
+
 ##########this function finds the best j,c         
 def ht(instances, weights):     
     ht = float("inf")
@@ -251,10 +251,10 @@ def ht(instances, weights):
         if cand[2] < ht:
             result0 = cand
             ht = cand[2]
-    print [result0[0],result0[1],result0[2]]
+#    print [result0[0], result0[1], result0[2]]
     return result0
-            
-        
+
+
 #############################
 class adaboost(Predictor):
     def __init__(self):
@@ -265,10 +265,10 @@ class adaboost(Predictor):
     def train(self, instances):
         self._weights = [1.0/sampleSize]*sampleSize
         for t in range(iterations):
-            everyth = ht(instances,self._weights)
-            eps = everyth [2]
+            everyth = ht(instances, self._weights)
+            eps = everyth[2]
             #print eps
-            htv = everyth [3]
+            htv = everyth[3]
             if eps <= 0.000001:
                 break
             else:
