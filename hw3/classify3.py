@@ -9,7 +9,6 @@ import argparse
 import sys
 import pickle
 import numpy
-import math
 
 from cs475_types import ClassificationLabel, FeatureVector, Instance, Predictor, InstanceKnn
 
@@ -134,29 +133,29 @@ def GetNeighbors2(instances, testInstance, k, maxFeature):
     return neighbors
 
  
-def GetLabel(neighbors):
+def knn_GetLabel(neighbors):
     classVotes = {}
     for e in neighbors:
         response = str(e._label)
         #print type(response)
         if response in classVotes:
-		classVotes[response] += 1
+            classVotes[response] += 1
         else:
-		classVotes[response] = 1
+            classVotes[response] = 1
     #print classVotes
     sortedVotes = sorted(classVotes, key=classVotes.get, reverse=True)     
     #print sortedVotes
     pred = sortedVotes[0]
     return int(pred)
 
-def GetLabel2(neighbors):
+def dwKnn_GetLabel(neighbors):
     classVotes = {}
     for e in neighbors:
         response = str(e._label)
         if response in classVotes:
-		classVotes[response] += 1.0/(e._dist**2+1)
+            classVotes[response] += 1.0/(e._dist**2+1)
         else:
-		classVotes[response] = 1.0/(e._dist**2+1)
+            classVotes[response] = 1.0/(e._dist**2+1)
     sortedVotes = sorted(classVotes, key=classVotes.get, reverse=True)     
     pred = sortedVotes[0]
     return int(pred)
@@ -172,10 +171,10 @@ class knn(Predictor):
                
     def predict(self,instance):
         neighbors = GetNeighbors(self._instances,instance, self._k,self._maxFeature)
-        label = GetLabel(neighbors)
+        label = knn_GetLabel(neighbors)
         return label        
 ###########################            
-class distance_knn(Predictor):
+class distanceWeighted_knn(Predictor):
     def train(self, instances, k):
         self._instances = instances
         self._k= k
@@ -184,91 +183,92 @@ class distance_knn(Predictor):
 
     def predict(self,instance):
         neighbors = GetNeighbors2(self._instances,instance, self._k,self._maxFeature)
-        label = GetLabel2(neighbors)
+        label = dwKnn_GetLabel(neighbors)
         return label
 
 
 ###############
 ### this function finds the x_{kj} for every sample, j feature
-def findValue(instances, feature_index):
-    J = feature_index
+def getFeatureValues(instances, feature_index):
     xkj = []
     for e in instances:
         val = 0
         for f in e._feature_vector._data:
-            if f[0]-1 == J:
+            if f[0] == feature_index:
                 val = f[1]
         xkj.append(val)
-   # print xkj
     return xkj
-    
-########this function finds the h_{j,c} value given x_{jk}    
-def hjc(xkjList, cutoff):
-    C = cutoff
-    greater = []
+
+######## this function finds the h_{j,c} value given x_{jk}    
+def hjc(xkjList, cutoff):   # rename 'hjc' to 'getStumpLabel', '' to ''
+    """
+    greater = []    
     for e in xkjList:
-        if e > C:
+        if e > cutoff:
             greater.append(1)
         else:
             greater.append(0)
-    return greater
+    return greater 
+    """
+    return [1 if e > cutoff else 0 for e in xkjList] # list comprehension is just a faster way to construct an object
 
-#### this function finds the best c in feature j
-def htj(instances, weights, feature_index):
-   # y = []
-    J = feature_index
-    xkj = findValue(instances, feature_index)
-    #for i in range(sampleSize):
-     #   mem = Instance(xkj[i-1],sampleSize[i-1]._label)
-      #  y.append(mem)
-    #sortedy = sorted(y, key=lambda x : x._feature_vector)   
-    sortedy = sorted(xkj) 
-    Clist = []
+#### this function finds the best cutoff c in feature j
+def htj(instances, weights, feature_index):     # rename 'htj' to 'getCutoff'
+    xkj = getFeatureValues(instances, feature_index)    # rename 'xkj' to 'instancesFeature'
+    xkj_sorted = sorted(xkj)                            # rename 'xkj_sorted' to 'instancesFeature_sorted'
+    """
+    cutoffList = []
     for i in range(sampleSize-1):
-        c = 0.5*(sortedy[i-1]+sortedy[i])
-        Clist.append(c)
-    Cset = set(Clist)
-    Clist = list(Cset)
-    #print Clist
-    ht = float("inf")
+        c = 0.5*(xkj_sorted[i]+xkj_sorted[i+1])
+        cutoffList.append(c)    
+    """
+    cutoffList = [ 0.5*(xkj_sorted[i] + xkj_sorted[i+1]) for i in range(sampleSize-1)] 
+    cutoffList = list(set(cutoffList))
+    error = float("inf")
     res = []
-    for l in range(len(Clist)):
-        cand =0
-        hjcx = hjc(xkj, Clist[l-1])
+    for c in range(len(cutoffList)):
+        cand_err =0
+        hjcx = hjc(xkj, cutoffList[c])  # rename 'hjc' to 'getStumpLabel', 'hjcx' to 'stumpLabel'
         for i in range(sampleSize):
-            cand = cand + weights[i-1] * int(str(hjcx[i-1]) != str(instances[i-1]._label))
-        if cand < ht:
-            ht = cand
-            res = [J, Clist[l-1], ht, hjcx]
+            cand_err += weights[i] * int(str(hjcx[i]) != str(instances[i]._label))
+        if cand_err < error:
+            error = cand_err
+            res = [feature_index, cutoffList[c], error, hjcx]   # rename 'hjcx' to 'stumpLabel'
     return res
-
+      
 ##########this function finds the best j,c         
 def ht(instances, weights):     
-    ht = float("inf")
-    result0 =[]
+    error = float("inf")
+    result =[]
     for j in range(maxFeature):
-        cand = htj(instances, weights, j)
-        if cand[2] < ht:
-            result0 = cand
-            ht = cand[2]
-#    print [result0[0], result0[1], result0[2]]
-    return result0
-
+        candidate = htj(instances, weights, j+1)
+        if candidate[2] < error:
+            result = candidate
+            error = candidate[2]
+    return result
+            
+# convert integer labels when needed and codes more reader friendly  
+def labelConvert(label):
+    if label == 1:
+        return 1
+    if label == 0:
+        return -1
+    if label == -1:
+        return 0
 
 #############################
 class adaboost(Predictor):
     def __init__(self):
         #self._weights = numpy.ones((sampleSize, T)) * (1.0/sampleSize)
-        self._weights = []
+        self._weights = [1.0/sampleSize] * sampleSize
         self._res = []
         
     def train(self, instances):
-        self._weights = [1.0/sampleSize]*sampleSize
+        import math
         for t in range(iterations):
-            everyth = ht(instances, self._weights)
+            everyth = ht(instances, self._weights)  # rename 'everyth' to 'newWeights'
             eps = everyth[2]
-            #print eps
-            htv = everyth[3]
+            htv = everyth[3]   # rename 'htv' to 'stumpLabel'
             if eps <= 0.000001:
                 break
             else:
@@ -276,47 +276,36 @@ class adaboost(Predictor):
                     alp = -float("inf")
                 else:
                     alp = 0.5 * math.log((1-eps)/eps)
-                    #print alp
                 Dt = [0]*sampleSize
                 for i in range(sampleSize): 
-                    lab = int(str(instances[i-1]._label))
-                    Dt[i-1] = self._weights[i-1]* numpy.exp(-alp * (lab*2-1)*htv[i-1])
+                    lab = labelConvert(int(str(instances[i]._label)))
+                    Dt[i] = self._weights[i] * numpy.exp(-alp * lab * labelConvert(htv[i]))  # rename 'htv' to 'stumpLabel'
             
                 Dtsum = sum(Dt)
                 self._weights = [x/Dtsum for x in Dt]
             
-            ###everyth[0] =J, everyth[1] =c
-            store = [alp, everyth[0],everyth[1], everyth[2]]
-            self._res.append(store) 
+            self._res.append( [alp, everyth[0], everyth[1], everyth[2]] ) 
         return self._res
         
-    def predict(self,instance):
-        #htx = []
+    def predict(self, instance):
         cand0 = 0
-        cand1 =0
+        cand1 = 0
         #print [self._res[0][0], self._res[0][1], self._res[0][2]]
         for i in range(len(self._res)):
-            alp = self._res[i-1][0]
-            J = self._res[i-1][1]
-            C = self._res[i-1][2]
-           #h = self._res[i-1][3]
+            alp = self._res[i][0]
+            feature_index = self._res[i][1]
+            cutoff = self._res[i][2]
             ind = 0
-            m = 0
             for f in instance._feature_vector._data:
-                if f[0]-1 ==J and f[1] >C:
+                if f[0] == feature_index and f[1] > cutoff:
                     ind = 1
-                    #print [C, f[1]]
-                    m = m +1
-                
-            #print ind
-            #htx.append(ind)
+            
             if ind == 0:
-                #print [C, f[1]]
                 cand0 = cand0 + alp
             else:
                 cand1 = cand1 + alp
-        print [cand0,cand1]
-        if cand0 >=cand1:
+                
+        if cand0 >= cand1:
             return 0
         else:             
             return 1
@@ -332,7 +321,7 @@ def train(instances, algorithm, k):
         return sol  
         
     if algorithm == "distance_knn":
-         sol = distance_knn()
+         sol = distanceWeighted_knn()
          sol.train(instances, k)
          return sol 
 
@@ -361,7 +350,7 @@ def ComputeMaxFeature(instances):
             if f[0] > maxfeature:
                 maxfeature = f[0]
     return maxfeature 
-    
+  
             
 def main():
     args = get_args()
@@ -419,7 +408,7 @@ if __name__ == "__main__":
 #python classify3.py --mode test --model-file easy.adaboost.model --data easy.dev --predictions-file easy.dev.predictions
 
 
-#python classify3.py --mode train --algorithm adaboost --model-file easy.adaboost.model --data easy.train --num-boosting-iterations 5
+#python classify3.py --mode train --algorithm adaboost --model-file easy.adaboost.model --data easy.train --num-boosting-iterations 10
 #python classify3.py --mode test --model-file easy.adaboost.model --data easy.dev --predictions-file easy.dev.predictions
 
 #python compute_accuracy.py easy.dev easy.dev.predictions
