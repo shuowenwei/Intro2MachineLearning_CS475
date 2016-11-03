@@ -101,11 +101,10 @@ def decision(w, feature_vector):
 
 class perception_train(Predictor):
     def __init__(self):
-        self._weights = [0]*10 
+        self._weights = [0]* maxFeature
         
     def train(self, instances):
-        I = 5
-        atheta = 1 
+        I = iterations
         for i in range(I): 
             for e in instances:
                 if str(decision(self._weights, e._feature_vector)) != str(e._label):
@@ -114,8 +113,9 @@ class perception_train(Predictor):
     
     def predict(self, instance): 
         res = 0             
-        for f in instance._feature_vector._data:
-            res = res + self._weights[f[0]-1] * f[1]
+        for f in instance._feature_vector._data:            
+            if f[0] <= len(self._weights):
+                res = res + self._weights[f[0]-1] * f[1]
         #print(res)
         if res >= 0:
             return 1
@@ -124,29 +124,30 @@ class perception_train(Predictor):
 
 class average_perception_train(Predictor):
     def __init__(self):
-        self._weights =[0]*620
+        self._weights =[0]* maxFeature
         
     def train(self, instances):
-        I = 15 
-        atheta = 1 
+        I = iterations 
         length = len(self._weights)
-        for i in range(I): 
-            add_weights = [0]*length 
+        add_weights = [0]* maxFeature
+        for i in range(I):              
             for e in instances:
                 if str(decision(self._weights, e._feature_vector)) != str(e._label):
                     self._weights = update(self._weights, atheta, str(e._label), e._feature_vector)
-                    for j in e._feature_vector._data:
-                        add_weights[j[0]-1] = add_weights[j[0]-1] + self._weights[j[0]-1] 
-            self._weights = [ a/float(length) for a in add_weights ]
+                for j in e._feature_vector._data:
+                    add_weights[j[0]-1] += self._weights[j[0]-1] 
+        self._weights = [ a/float(I*len(instances)) for a in add_weights ]
         
     def predict(self,instance):
         res=0
         for f in instance._feature_vector._data:
-            res=res+self._weights[f[0]-1] *f[1]
+            if f[0] <= len(self._weights):
+                res=res + self._weights[f[0]-1] *f[1]
         if res >=0:
             return 1
         else:
             return 0
+ 
 
 def train(instances, algorithm):
     # TODO Train the model using "algorithm" on "data"
@@ -158,9 +159,9 @@ def train(instances, algorithm):
         return sol 
         
     if algorithm == "averaged_perceptron":
-         sol = average_perception_train()
-         sol.train(instances)
-         return sol 
+        sol = average_perception_train()
+        sol.train(instances)
+        return sol 
 
 
 def write_predictions(predictor, instances, predictions_file):
@@ -173,16 +174,31 @@ def write_predictions(predictor, instances, predictions_file):
     except IOError:
         raise Exception("Exception while opening/writing file for writing predicted labels: " + predictions_file)
 
+def ComputeMaxFeature(instances):
+    maxfeature = 0 
+    for e in instances:
+        for f in e._feature_vector._data:
+            if f[0] > maxfeature:
+                maxfeature = f[0]
+    return maxfeature 
 
 def main():
     args = get_args()
+    global maxFeature
+    global atheta
+    global iterations
+    atheta = args.online_learning_rate 
+    iterations = args.online_training_iterations
 
     if args.mode.lower() == "train":
         # Load the training data.
         instances = load_data(args.data)
+        maxFeature = ComputeMaxFeature(instances)
+        #print maxFeature
 
         # Train the model.
         predictor = train(instances, args.algorithm)
+        #print predictor
         try:
             with open(args.model_file, 'wb') as writer:
                 pickle.dump(predictor, writer)
@@ -212,4 +228,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+#python classify.py --mode train --algorithm perceptron --model-file finance.perceptron.model --data finance.train
+#python classify.py --mode test --model-file easy.perceptron.model --data easy.dev --predictions-file easy.dev.predictions
+
+#python classify.py --mode train --algorithm averaged_perceptron --model-file easy.averaged_perceptron.model --data easy.train
+#python classify.py --mode test --model-file easy.averaged_perceptron.model --data easy.dev --predictions-file easy.dev.predictions
+#python compute_accuracy.py easy.dev easy.dev.predictions
+
+#python classify.py --mode train --algorithm averaged_perceptron --model-file bio.averaged_perceptron.model --data bio.train
+#python classify.py --mode test --model-file bio.averaged_perceptron.model --data bio.dev --predictions-file bio.dev.predictions
+#python compute_accuracy.py bio.dev bio.dev.predictions
 
