@@ -134,9 +134,10 @@ class average_perception_train(Predictor):
             for e in instances:
                 if str(decision(self._weights, e._feature_vector)) != str(e._label):
                     self._weights = update(self._weights, atheta, str(e._label), e._feature_vector)
-                for j in e._feature_vector._data:
-                    add_weights[j[0]-1] += self._weights[j[0]-1] 
+                for j in range(length):
+                    add_weights[j] += self._weights[j] 
         self._weights = [ a/float(I*len(instances)) for a in add_weights ]
+        
         
     def predict(self,instance):
         res=0
