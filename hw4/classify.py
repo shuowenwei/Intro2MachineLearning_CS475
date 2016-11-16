@@ -10,6 +10,8 @@ Created on Fri Oct 28 16:56:38 2016
 Created on Thu Sep 29 16:11:16 2016
 
 @author: mygao
+
+@email: mygao90@gmail.com
 """
 
 import os
