@@ -1,5 +1,7 @@
 # Intro2MachineLearning_CS475
 
-This is the code repository for the CS475 - Introduction to Machine Learning course 
+This is the code repository of homeworks for the CS475 - Introduction to Machine Learning course 
 
-Main contributors: Mingyue and Shuowen 
+Main contributors: 
+  Shuowen (weisw9@gmail.com) 
+  Mingyue
